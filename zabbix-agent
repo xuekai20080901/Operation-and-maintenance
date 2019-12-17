@@ -1,0 +1,39 @@
+#!/bin/bash
+#this  script is for install zabbix-agent
+#edit  by  xuekai
+#date  2019/12/14
+url=http://192.168.1.128/zabbix_agents-4.4.3-linux3.0-amd64-static.tar.gz
+zabbixserver=192.168.1.128
+mkdir -p /usr/local/zabbix-agent
+useradd   zabbix 
+chown   -R   zabbix:zabbix  /usr/local/zabbix-agent
+wget  $url -P /usr/local/zabbix-agent
+cd /usr/local/zabbix-agent
+tar -zxvf zabbix_agents-4.4.3-linux3.0-amd64-static.tar.gz  -C /usr/local/zabbix-agent/
+sed  -i "/LogFile/,/log/d" /usr/local/zabbix-agent/conf/zabbix_agentd.conf
+cat>>/usr/local/zabbix-agent/conf/zabbix_agentd.conf<<EOF
+PidFile=/usr/local/zabbix-agent/zabbix_agentd.pid
+LogFile=/usr/local/zabbix-agent/zabbix_agentd.log
+EOF
+sed -i "s/127.0.0.1/$zabbixserver/g" /usr/local/zabbix-agent/conf/zabbix_agentd.conf
+sed -i "s/Hostname=Zabbix server/Hostname=$HOSTNAME/g" /usr/local/zabbix-agent/conf/zabbix_agentd.conf
+
+/usr/local/zabbix-agent/sbin/zabbix_agentd -c /usr/local/zabbix-agent/conf/zabbix_agentd.conf
+echo "/usr/local/zabbix-agent/sbin/zabbix_agentd -c /usr/local/zabbix-agent/conf/zabbix_agentd.conf"> /etc/rc.local
+
+rm -rf /usr/local/zabbix-agent/zabbix_agents-4.4.3-linux3.0-amd64-static.tar.gz
+a="-A INPUT -m state --state NEW -m udp -p udp --dport 10050 -j ACCEPT"
+b="-A INPUT -m state --state NEW -m tcp -p tcp --dport 10050 -j ACCEPT"
+c="-A INPUT -m state --state NEW -m udp -p udp --dport 10051 -j ACCEPT"
+d="-A INPUT -m state --state NEW -m tcp -p tcp --dport 10051 -j ACCEPT"
+sed -i "6a$d" /etc/sysconfig/iptables
+sed -i "6a$c" /etc/sysconfig/iptables
+sed -i "6a$b" /etc/sysconfig/iptables
+sed -i "6a$a" /etc/sysconfig/iptables
+/etc/init.d/iptables restart
+netstat -tunlop | grep 10050
+if  [ $? -eq 0   ];then 
+	echo  "zabbix agent installation is complete!"
+	else 
+	echo  "zabbix agent installation encountered an error"
+fi
